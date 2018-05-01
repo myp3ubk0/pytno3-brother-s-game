@@ -1,5 +1,6 @@
 from objects import *
 
 root = getScreenRoot()
-initAllObjects()
+animate() 
+# initAllObjects()
 root.mainloop()

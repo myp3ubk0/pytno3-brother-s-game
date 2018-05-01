@@ -1,7 +1,8 @@
 from screen import *
-from C_NPC import *
-from C_ITEM import *
+from npc import *
+from item import *
 from random import *
+from screen import *
 from keys import keysDictionary
 
 root = getScreenRoot()
@@ -20,70 +21,54 @@ def addItem(item):
     itemCollection[itemCollectionIndex] = item
     itemCollectionIndex = itemCollectionIndex + 1
 
-addNpc(C_ENEMY("copy",4))
-addNpc(C_ENEMY("wolf",4))
-addNpc(C_ENEMY("copy",4))
-addNpc(C_ENEMY("copy",4))
-addNpc(C_ENEMY("copy",4))
-addNpc(C_ENEMY("wolf",4))
-addNpc(C_NPC("player",5))
 
-def initAllObjects():
-    for i in range(0, len(npcCollection)):
-        npcCollection[i].screenObject.pack()
-        npcCollection[i].screenObject.place(x = i*root.winfo_screenwidth()/len(npcCollection),y = i*root.winfo_screenheight()/len(npcCollection))
-    for i in range(0,len(itemCollection)):
-        itemCollection[i].screenObject.pack()
-        itemCollection[i].screenObject.place(x = itemCollection[i].posX,y = itemCollection[i].posY)
-
-def checkObjectsCollision(obj1, obj2):    
-    ax0 = obj1.winfo_rootx(); ay0 = obj1.winfo_rooty()
-    ax1 = ax0 + obj1.winfo_width(); ay1 = ay0 + obj1.winfo_height()
-    bx0 = obj2.winfo_rootx(); by0 = obj2.winfo_rooty()
-    bx1 = bx0 + obj2.winfo_width(); by1 = by0 + obj2.winfo_height()
+def checkObjectsCollision(obj1, obj2):
+    if (obj1 == root):
+        ax0 = obj1.winfo_x(); ay0 = obj1.winfo_y()
+        ax1 = ax0 + obj1.winfo_width(); ay1 = ay0 + obj1.winfo_height()
+    else:    
+        ax0 = obj1.posX; ay0 = obj1.posY
+        ax1 = ax0 + obj1.screenImage.width(); ay1 = ay0 + obj1.screenImage.height()
+    bx0 = obj2.posX; by0 = obj2.posY
+    bx1 = bx0 + obj2.screenImage.width(); by1 = by0 + obj2.screenImage.height()
     return (ax0 < bx0 and bx0 < ax1 and ay0 < by0 and by0 < ay1) or (ax0 < bx1 and bx1 < ax1 and ay0 < by1 and by1 < ay1)
 
 def checkCollision():
     player = findPlayer()
     actionFlag = True
-    if (not (player is None) and player.health > 0):
+    if (type(player) == C_NPC and player.health > 0):
         for i in range(0, len (itemCollection)):
+            obj = itemCollection[i]
             if (actionFlag):
-                if (not (itemCollection[i] is None)):
-                    obj = itemCollection[i]
-                    if (checkObjectsCollision(player.screenObject,obj.screenObject)):
-                        if (not obj.firing):
-                            obj.screenObject.destroy()
-                            itemCollection[i] = None
-                            player.attack += 1  
-                            actionFlag = False  
-            for j in range(0, len (npcCollection)):
-                if ((not (itemCollection[i] is None)) and (not (npcCollection[j] is None))):
-                    if (itemCollection[i].firing and checkObjectsCollision(npcCollection[j].screenObject,itemCollection[i].screenObject) and npcCollection[j].name != "player"):
-                        playerHit(j)
-                        obj.screenObject.destroy()
+                if (type(obj) == C_ITEM):
+                    if (checkObjectsCollision(player,obj)):
                         itemCollection[i] = None
-
+                        player.attack += 1  
+                        actionFlag = False  
+            for j in range(0, len (npcCollection)):
+                if ((type(obj) == C_BULLET) and (type(npcCollection[j]) == C_NPC)):
+                    if (obj.firing and checkObjectsCollision(npcCollection[j],obj) and npcCollection[j].name != "player"):
+                        playerHit(j)
+                        itemCollection[i] = None
         for i in range(0, len (npcCollection)):
+            obj = npcCollection[i]
             if (actionFlag):
-                if (not (npcCollection[i] is None)):
-                    obj = npcCollection[i]
-                    if (checkObjectsCollision(player.screenObject,obj.screenObject)):
+                if (type(npcCollection[i]) == C_NPC):
+                    if (checkObjectsCollision(obj,player)):
                         playerHit()
                         actionFlag = False        
 
-def playerHit(id = -1):
-    if (id == -1):
+def playerHit(id = None):
+    if (id == None):
         for i in range(0, len (npcCollection)):
-            if ((not (npcCollection[i] is None)) and (npcCollection[i].name == "player")) : id = i
+            if ((type(npcCollection[i]) == C_NPC) and (npcCollection[i].name == "player")) : id = i
     npcCollection[id].health = npcCollection[id].health - 1
     if (npcCollection[id].health <= 0):
-        npcCollection[id].screenObject.destroy()
         npcCollection[id] = None
 
 def findPlayer():
     for i in range(0, len (npcCollection)):
-        if (not(npcCollection[i] is None) and (npcCollection[i].name == "player")):
+        if ((type(npcCollection[i]) == C_NPC) and (npcCollection[i].name == "player")):
             return npcCollection[i]
     return None
 
@@ -111,36 +96,49 @@ def playerShoot(press):
         if ((press[keysDictionary["keyRight"]] and not press[keysDictionary["keyLeft"]]) or (player.spriteStand == player.spriteRightStand)): vx=1
         addItem(C_BULLET("bullet",5,True,player.posX,player.posY,vx,vy))
         
-timeToCreate = 0
-timeToShoot = 0
-def _animate():
-    global timeToCreate, timeToShoot
+timeToCreateItem = 0; timeToShoot = 0; timeToCreateEnemy = 0
+addNpc(C_NPC("player",3,500,500))
+def animate():
+    global timeToCreateItem, timeToShoot, timeToCreateEnemy
+    player = findPlayer()
     if (pressed[keysDictionary["keyUp"]] or pressed[keysDictionary["keyDown"]] or pressed[keysDictionary["keyLeft"]] or pressed[keysDictionary["keyRight"]]): 
-        if not (findPlayer() is None): playerMove(pressed)
+        if (type(player) == C_NPC): playerMove(pressed)
     if (pressed[keysDictionary["keyAttack"]]): 
-        if ((not (findPlayer() is None)) and (timeToShoot == 0)): playerShoot(pressed)
+        if ((type(player) == C_NPC) and (timeToShoot == 0)): playerShoot(pressed)
     for i in range(0, len (itemCollection)):
-        if (not (itemCollection[i] is None)):
+        if (type(itemCollection[i]) == C_BULLET):
             if (itemCollection[i].firing):
-                itemCollection[i].throw()                
-                if (not checkObjectsCollision(root,itemCollection[i].screenObject)):
-                    itemCollection[i].screenObject.destroy()
+                itemCollection[i].throw() 
+                timeToShoot +=1               
+                if (not checkObjectsCollision(root,itemCollection[i])):
                     itemCollection[i] = None
     checkCollision()
-    if (timeToCreate >= 100):
-        timeToCreate = 0
-        addItem(C_ITEM("bullet",5,False,randint(0,root.winfo_screenwidth()),randint(0,root.winfo_screenheight())))
-    else: timeToCreate += 1
-    if (timeToShoot >=10 and timeToShoot != 0):
+    if (timeToCreateItem >= 100):
+        timeToCreateItem = 0
+        addItem(C_ITEM("bullet",randint(0,root.winfo_screenwidth()),randint(0,root.winfo_screenheight())))
+    else: timeToCreateItem += 1
+    if (timeToCreateEnemy >= 500):
+        timeToCreateEnemy = 0
+        rand = randint(0,1)
+        if (rand == 0): 
+            addNpc(C_NPC("wolf",1,randint(0,root.winfo_screenwidth()),randint(0,root.winfo_screenheight())))
+        else: 
+            addNpc(C_NPC("copy",1,randint(0,root.winfo_screenwidth()),randint(0,root.winfo_screenheight())))
+    else: timeToCreateEnemy += 1
+    if (timeToShoot >=10):
         timeToShoot = 0
-    else: timeToShoot += 1
-    weaponLabel.configure(text = "You DEAD" if (findPlayer() is None) else findPlayer().attack)
-    weaponLabel.update()
-    root.after(15, _animate)
+    elif (timeToShoot !=0) : timeToShoot +=1
+    #Update canvas
+    canvas.delete("all")
+    for i in range(0,len(itemCollection)):
+        if ((type(itemCollection[i]) == C_ITEM) or (type(itemCollection[i]) == C_BULLET)): canvas.create_image(itemCollection[i].posX,itemCollection[i].posY,image = itemCollection[i].screenImage)
+    for i in range(0,len(npcCollection)):
+        if (type(npcCollection[i]) == C_NPC): canvas.create_image(npcCollection[i].posX,npcCollection[i].posY,image = npcCollection[i].screenImage)
+    #End canvas update
+    root.after(15, animate)
     
 for char in [keysDictionary["keyUp"],keysDictionary["keyDown"],keysDictionary["keyLeft"], keysDictionary["keyRight"], keysDictionary["keyAttack"]]:
     root.bind("<KeyPress>", _pressed)
     root.bind("<KeyRelease>", _released)
     pressed[char] = False
-
-_animate()   
+  
